@@ -170,7 +170,7 @@ class WhatsAppService {
             const separator = "───";
 
             // --- Assemble the main message body ---
-            const header = `*📧 >> EMAIL TO WHATSAPP FORWARDER*`;
+            const header = `⌬  >>  𝗘𝗠𝗔𝗜𝗟 𝗙𝗢𝗥𝗪𝗔𝗥𝗗𝗘𝗥`;
             const infoHeader = `*ℹ️ - EMAIL INFORMATION*`;
             const from = `*From:* ${emailData.from}`;
             const to = `*To:* ${emailData.to}`;

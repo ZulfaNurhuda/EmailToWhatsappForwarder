@@ -55,7 +55,7 @@ function formatImagePlaceholders(text) {
 
     // Replace [image: ...] with a formatted string
     text = text.replace(/[\[]image:.*?\]/g, (match) => {
-        return "```\n" + match + " => Lihat di attachment\n```";
+        return "```" + match + "```";
     });
 
     return text;
