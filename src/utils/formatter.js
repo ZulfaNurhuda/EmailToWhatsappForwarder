@@ -15,37 +15,52 @@ function stripHtml(html) {
     // Return an empty string immediately if the input is null, undefined, or empty.
     if (!html) return "";
 
-    // 1. Remove script and style blocks completely, as their content is not useful as plain text.
-    // The [\S\s]*? pattern performs a non-greedy match for any character, including newlines.
-    let text = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gmi, "");
-    text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gmi, "");
+    let text = html;
+    // 1. Remove script and style blocks completely
+    text = text.replace(/<style[^>]*>.*<\/style>/gms, "");
+    text = text.replace(/<script[^>]*>.*<\/script>/gms, "");
 
-    // 2. Replace common block-level tags with a newline to preserve paragraph breaks and structure.
-    // This helps maintain readability by separating distinct blocks of text.
+    // 2. Replace common block-level tags with a newline
     text = text.replace(/<\/(h[1-6]|p|div|li|blockquote|pre)>/gi, "\n");
-    text = text.replace(/<(br|hr)[\s/]*>/gi, "\n");
+    text = text.replace(/<(br|hr)[\s\/]*>/gi, "\n");
 
-    // 3. Remove any remaining HTML tags (like <span>, <b>, <i>, etc.) without replacing them with spaces,
-    // as they are typically inline and do not represent structural breaks.
+    // 3. Remove any remaining HTML tags
     text = text.replace(/<[^>]+>/g, "");
 
-    // 4. Decode common HTML entities to their corresponding characters.
-    // This ensures that special characters are displayed correctly in plain text.
+    // 4. Decode common HTML entities
     text = text
-        .replace(/&nbsp;/g, " ")       // Non-breaking space
-        .replace(/&amp;/g, "&")        // Ampersand
-        .replace(/&lt;/g, "<")         // Less-than
-        .replace(/&gt;/g, ">")         // Greater-than
-        .replace(/&quot;/g, '"')      // Double quote
-        .replace(/&#39;/g, "'");      // Single quote
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
 
-    // 5. Clean up whitespace:
-    // - Replace multiple newlines or spaces with a single newline to avoid large empty gaps.
-    // - Trim leading/trailing whitespace from the final result.
-    text = text.replace(/\n\s*\n/g, "\n").trim();
+    // 5. Clean up whitespace
+    text = text.replace(/[ \t]+/g, ' ').replace(/\n\s*\n/g, "\n").trim();
 
     return text;
 }
+
+/**
+ * Formats image placeholders within a given text string.
+ * This function specifically looks for patterns like [image: ...] and formats them.
+ *
+ * @param {string} text - The plain text content where image placeholders need to be formatted.
+ * @returns {string} The text with image placeholders formatted.
+ */
+function formatImagePlaceholders(text) {
+    // Return an empty string immediately if the input is null, undefined, or empty.
+    if (!text) return "";
+
+    // Replace [image: ...] with a formatted string
+    text = text.replace(/[\[]image:.*?\]/g, (match) => {
+        return "```" + match + "```";
+    });
+
+    return text;
+}
+
 
 /**
  * Converts a file size in bytes into a human-readable string format (e.g., KB, MB, GB).
@@ -80,5 +95,6 @@ function formatFileSize(bytes) {
 // Export the utility functions for use in other modules.
 module.exports = {
     stripHtml,
+    formatImagePlaceholders,
     formatFileSize,
 };

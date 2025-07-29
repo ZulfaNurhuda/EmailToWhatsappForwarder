@@ -16,7 +16,7 @@ const FormData = require("form-data");
 const fs = require("fs");
 const { config } = require("../utils/config");
 const logger = require("../utils/logger");
-const { stripHtml, formatFileSize } = require("../utils/formatter");
+const { formatImagePlaceholders, formatFileSize, stripHtml } = require("../utils/formatter");
 const { delay } = require("../utils/helpers");
 
 /**
@@ -170,14 +170,22 @@ class WhatsAppService {
             const separator = "───";
 
             // --- Assemble the main message body ---
-            const header = `*📧 >> EMAIL TO WHATSAPP FORWARDER*`;
+            const header = `⌬  >>  𝗘𝗠𝗔𝗜𝗟 𝗙𝗢𝗥𝗪𝗔𝗥𝗗𝗘𝗥`;
             const infoHeader = `*ℹ️ - EMAIL INFORMATION*`;
             const from = `*From:* ${emailData.from}`;
             const to = `*To:* ${emailData.to}`;
             const date = `*Date:* ${new Date(emailData.date).toLocaleString()}`;
             const contentHeader = `*📝 - EMAIL CONTENT*`;
             const subject = `*Subject:* ${emailData.subject}`;
-            const body = emailData.text || stripHtml(emailData.html);
+            let rawBodyText;
+            if (emailData.text) {
+                rawBodyText = emailData.text;
+            } else if (emailData.html) {
+                rawBodyText = stripHtml(emailData.html);
+            } else {
+                rawBodyText = '';
+            }
+            const body = formatImagePlaceholders(rawBodyText);
 
             // --- Attachment Information ---
             const totalAttachments = (emailData.attachments?.length || 0) + (emailData.skippedAttachments?.length || 0);
@@ -189,7 +197,7 @@ class WhatsAppService {
             // --- Construct the final message ---
             let message = `${header}\n\n${separator}\n\n${infoHeader}\n\n${from}\n${to}\n${date}\n\n${separator}\n\n${contentHeader}\n\n${subject}\n\n${body}`;
             if (attachmentText) {
-                message += `\n\n${separator}\n\n${attachmentText}`;
+                message += `\n${separator}\n\n${attachmentText}`;
             }
 
             // Send the consolidated text message.
