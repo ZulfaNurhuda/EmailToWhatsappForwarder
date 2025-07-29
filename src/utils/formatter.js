@@ -43,16 +43,18 @@ function stripHtml(html) {
 }
 
 /**
- * Formats the email body by stripping HTML and handling image placeholders.
+ * Formats image placeholders within a given text string.
+ * This function specifically looks for patterns like [image: ...] and formats them.
  *
- * @param {string} html - The HTML content of the email.
- * @returns {string} The formatted email body.
+ * @param {string} text - The plain text content where image placeholders need to be formatted.
+ * @returns {string} The text with image placeholders formatted.
  */
-function formatEmailBody(html) {
-    let text = stripHtml(html);
+function formatImagePlaceholders(text) {
+    // Return an empty string immediately if the input is null, undefined, or empty.
+    if (!text) return "";
 
     // Replace [image: ...] with a formatted string
-    text = text.replace(/\[image:.*?\]/g, (match) => {
+    text = text.replace(/[\[]image:.*?\]/g, (match) => {
         return "```\n" + match + " => Lihat di attachment\n```";
     });
 
@@ -93,6 +95,6 @@ function formatFileSize(bytes) {
 // Export the utility functions for use in other modules.
 module.exports = {
     stripHtml,
-    formatEmailBody,
+    formatImagePlaceholders,
     formatFileSize,
 };

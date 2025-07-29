@@ -1,4 +1,4 @@
-const { formatFileSize, stripHtml } = require('../formatter');
+const { formatFileSize, stripHtml, formatImagePlaceholders } = require('../formatter');
 
 describe('formatter utilities', () => {
     // Tests for formatFileSize
@@ -50,6 +50,26 @@ describe('formatter utilities', () => {
         test('should condense whitespace', () => {
             const html = '<p>Extra   spaces</p>';
             expect(stripHtml(html)).toBe('Extra spaces');
+        });
+    });
+
+    // Tests for formatImagePlaceholders
+    describe('formatImagePlaceholders', () => {
+        test('should format image placeholders correctly', () => {
+            const textWithImage = 'Hello, World!\n[image: some_image.png]\nAnother line.';
+            const expectedFormattedText = 'Hello, World!\n```\n[image: some_image.png] => Lihat di attachment\n```\nAnother line.';
+            expect(formatImagePlaceholders(textWithImage)).toBe(expectedFormattedText);
+        });
+
+        test('should handle multiple image placeholders', () => {
+            const textWithMultipleImages = 'First image: [image: img1.jpg]\nSecond image: [image: img2.jpeg]';
+            const expectedFormattedText = 'First image: ```\n[image: img1.jpg] => Lihat di attachment\n```\nSecond image: ```\n[image: img2.jpeg] => Lihat di attachment\n```';
+            expect(formatImagePlaceholders(textWithMultipleImages)).toBe(expectedFormattedText);
+        });
+
+        test('should not modify text without image placeholders', () => {
+            const plainText = 'This is a plain text email with no images.';
+            expect(formatImagePlaceholders(plainText)).toBe(plainText);
         });
     });
 });
