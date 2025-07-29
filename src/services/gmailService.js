@@ -90,15 +90,28 @@ class GmailService {
     }
 
     /**
-     * Searches for unread emails from specific sender
+     * Searches for unread emails from specific senders
      * @returns {Promise<number[]>} Array of email UIDs
      */
-    searchUnreadFromSender() {
+    searchUnreadFromSenders() {
         return new Promise((resolve, reject) => {
-            const searchCriteria = [
-                "UNSEEN",
-                ["FROM", config.filter.senderEmail],
-            ];
+            const senders = config.filter.senderEmail
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean);
+
+            if (senders.length === 0) {
+                logger.warn("No sender emails configured for filtering.");
+                return resolve([]);
+            }
+
+            const searchCriteria = ["UNSEEN"];
+            if (senders.length > 1) {
+                const senderCriteria = senders.map(sender => ["FROM", sender]);
+                searchCriteria.push("OR", ...senderCriteria);
+            } else {
+                searchCriteria.push(["FROM", senders[0]]);
+            }
 
             this.imap.search(searchCriteria, (err, results) => {
                 if (err) {
@@ -106,7 +119,7 @@ class GmailService {
                     reject(err);
                 } else {
                     logger.info(
-                        `Found ${results.length} unread emails from ${config.filter.senderEmail}`,
+                        `Found ${results.length} unread emails from configured senders.`,
                     );
                     resolve(results);
                 }
@@ -171,6 +184,7 @@ class GmailService {
             text: email.text || "",
             html: email.html || "",
             attachments: [],
+            skippedAttachments: [],
         };
 
         // Process attachments
@@ -181,10 +195,13 @@ class GmailService {
                     const sizeMB = attachment.size / (1024 * 1024);
                     if (sizeMB > config.app.maxAttachmentSizeMB) {
                         logger.warn(
-                            `Attachment ${attachment.filename} exceeds size limit (${
-                                sizeMB.toFixed(2)
-                            }MB)`,
+                            `Skipping attachment ${attachment.filename} because it exceeds the size limit (${sizeMB.toFixed(2)}MB).`,
                         );
+                        processedData.skippedAttachments.push({
+                            filename: attachment.filename,
+                            size: attachment.size,
+                            reason: "Exceeds size limit",
+                        });
                         continue;
                     }
 
@@ -246,7 +263,7 @@ class GmailService {
             }
 
             await this.openInbox();
-            const uids = await this.searchUnreadFromSender();
+            const uids = await this.searchUnreadFromSenders();
 
             for (const uid of uids) {
                 try {

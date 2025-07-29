@@ -9,6 +9,8 @@ const fs = require("fs");
 const path = require("path");
 const { config } = require("../utils/config");
 const logger = require("../utils/logger");
+const { stripHtml, formatFileSize } = require("../utils/formatter");
+const { delay } = require("../utils/helpers");
 
 /**
  * WhatsApp Service Class for sending messages via Green API
@@ -184,7 +186,7 @@ class WhatsAppService {
             const separator = `${"─".repeat(30)}\n`;
 
             // Use text content, fallback to HTML if text is empty
-            const content = emailData.text || this.stripHtml(emailData.html);
+            const content = emailData.text || stripHtml(emailData.html);
 
             const message =
                 `${header}${from}${to}${subject}${date}${separator}\n${content}`;
@@ -193,9 +195,10 @@ class WhatsAppService {
             await this.sendTextMessage(config.whatsapp.targetNumber, message);
 
             // Send attachments if any
-            if (emailData.attachments && emailData.attachments.length > 0) {
+            const totalAttachments = (emailData.attachments?.length || 0) + (emailData.skippedAttachments?.length || 0);
+            if (totalAttachments > 0) {
                 const attachmentHeader =
-                    `📎 *Attachments (${emailData.attachments.length})*`;
+                    `📎 *Attachments (${emailData.attachments.length} sent, ${emailData.skippedAttachments.length} skipped)*`;
                 await this.sendTextMessage(
                     config.whatsapp.targetNumber,
                     attachmentHeader,
@@ -204,18 +207,10 @@ class WhatsAppService {
                 for (const attachment of emailData.attachments) {
                     try {
                         const caption = `📄 ${attachment.filename}\n💾 Size: ${
-                            this.formatFileSize(attachment.size)
+                            formatFileSize(attachment.size)
                         }`;
 
-                        // Determine if it's an image
-                        const imageExtensions = [
-                            ".jpg",
-                            ".jpeg",
-                            ".png",
-                            ".gif",
-                            ".bmp",
-                            ".webp",
-                        ];
+                        const imageExtensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"];
                         const isImage = imageExtensions.some((ext) =>
                             attachment.filename.toLowerCase().endsWith(ext)
                         );
@@ -235,22 +230,19 @@ class WhatsAppService {
                             );
                         }
 
-                        // Add delay between attachments to avoid rate limiting
-                        await this.delay(2000);
+                        await delay(2000);
                     } catch (error) {
-                        logger.error(
-                            `Failed to send attachment ${attachment.filename}:`,
-                            error,
-                        );
-
-                        // Notify about failed attachment
-                        const errorMessage =
-                            `❌ Failed to send attachment: ${attachment.filename}`;
-                        await this.sendTextMessage(
-                            config.whatsapp.targetNumber,
-                            errorMessage,
-                        );
+                        logger.error(`Failed to send attachment ${attachment.filename}:`, error);
+                        const errorMessage = `❌ Failed to send attachment: ${attachment.filename}`;
+                        await this.sendTextMessage(config.whatsapp.targetNumber, errorMessage);
                     }
+                }
+
+                // Notify about skipped attachments
+                for (const skipped of emailData.skippedAttachments) {
+                    const skippedMessage = `⚠️ Skipped attachment: ${skipped.filename} (${formatFileSize(skipped.size)}) - Reason: ${skipped.reason}`;
+                    await this.sendTextMessage(config.whatsapp.targetNumber, skippedMessage);
+                    await delay(1000);
                 }
             }
 
@@ -261,47 +253,6 @@ class WhatsAppService {
         }
     }
 
-    /**
-     * Strips HTML tags from text
-     * @param {string} html - HTML content
-     * @returns {string} Plain text
-     */
-    stripHtml(html) {
-        return html
-            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-            .replace(/<[^>]+>/g, "")
-            .replace(/&nbsp;/g, " ")
-            .replace(/&amp;/g, "&")
-            .replace(/&lt;/g, "<")
-            .replace(/&gt;/g, ">")
-            .replace(/&quot;/g, '"')
-            .replace(/&#39;/g, "'")
-            .replace(/\s+/g, " ")
-            .trim();
-    }
-
-    /**
-     * Formats file size to human readable format
-     * @param {number} bytes - File size in bytes
-     * @returns {string} Formatted file size
-     */
-    formatFileSize(bytes) {
-        const sizes = ["Bytes", "KB", "MB", "GB"];
-        if (bytes === 0) return "0 Bytes";
-        const i = Math.floor(Math.log(bytes) / Math.log(1024));
-        return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + " " +
-            sizes[i];
-    }
-
-    /**
-     * Delay function for rate limiting
-     * @param {number} ms - Milliseconds to delay
-     * @returns {Promise<void>}
-     */
-    delay(ms) {
-        return new Promise((resolve) => setTimeout(resolve, ms));
-    }
 
     /**
      * Sends a notification message
