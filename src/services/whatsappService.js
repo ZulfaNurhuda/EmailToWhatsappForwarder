@@ -189,7 +189,7 @@ class WhatsAppService {
             // --- Construct the final message ---
             let message = `${header}\n\n${separator}\n\n${infoHeader}\n\n${from}\n${to}\n${date}\n\n${separator}\n\n${contentHeader}\n\n${subject}\n\n${body}`;
             if (attachmentText) {
-                message += `\n\n${separator}\n\n${attachmentText}`;
+                message += `\n${separator}\n\n${attachmentText}`;
             }
 
             // Send the consolidated text message.
