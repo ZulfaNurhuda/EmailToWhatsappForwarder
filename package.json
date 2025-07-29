@@ -1,5 +1,5 @@
 {
-    "name": "EmailToWhatsappForwarder",
+    "name": "email-to-whatsapp-forwarder",
     "version": "1.0.0",
     "description": "A Node.js application that forwards emails from Gmail to WhatsApp using Green API",
     "main": "src/app.js",

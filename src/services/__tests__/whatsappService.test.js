@@ -19,7 +19,7 @@ describe('WhatsAppService', () => {
         axios.create.mockReturnThis();
         axios.post.mockReset();
         axios.get.mockReset();
-        fs.readFileSync.mockReset();
+        fs.createReadStream.mockReset();
 
         whatsappService = new WhatsAppService();
     });
@@ -80,18 +80,16 @@ describe('WhatsAppService', () => {
             const caption = 'Test file';
             const filename = 'file.pdf';
 
-            fs.readFileSync.mockReturnValue(Buffer.from('file content'));
+            fs.createReadStream.mockReturnValue(Buffer.from('file content'));
             axios.post.mockResolvedValue({ data: { idMessage: 'file-id' } });
 
             await whatsappService.sendFile(recipient, filePath, caption, filename);
 
-            expect(fs.readFileSync).toHaveBeenCalledWith(filePath);
+            expect(fs.createReadStream).toHaveBeenCalledWith(filePath);
             expect(axios.post).toHaveBeenCalledWith(
                 `/sendFileByUpload/${config.greenApi.apiToken}`,
-                expect.objectContaining({
-                    fileName: filename,
-                    caption: caption,
-                })
+                expect.any(Object), // FormData object
+                expect.any(Object) // Headers
             );
         });
     });
@@ -126,58 +124,48 @@ describe('WhatsAppService', () => {
         };
 
         beforeEach(() => {
-            fs.readFileSync.mockReturnValue(Buffer.from('mock file content'));
+            fs.createReadStream.mockReturnValue(Buffer.from('mock file content'));
             axios.post.mockResolvedValue({ data: {} }); // Mock successful send
         });
 
-        it('should send the main email content', async () => {
+        it('should send a single, formatted message for the email', async () => {
             await whatsappService.forwardEmail(emailData);
 
-            // Check that the main text message was sent
+            const expectedMessage = `*📧 >> EMAIL TO WHATSAPP FORWARDER*\n\n───\n\n*ℹ️ - EMAIL INFORMATION*\n\n*From:* ${emailData.from}\n*To:* ${emailData.to}\n*Date:* ${new Date(emailData.date).toLocaleString()}\n\n───\n\n*📝 - EMAIL CONTENT*\n\n*Subject:* ${emailData.subject}\n\n${emailData.text}`;
+
+            // Check that sendTextMessage was called for the main message
             expect(axios.post).toHaveBeenCalledWith(
                 expect.stringContaining('/sendMessage/'),
                 expect.objectContaining({
-                    message: expect.stringContaining('*Subject:* Test Email'),
+                    message: expect.stringContaining(expectedMessage)
                 })
             );
         });
 
-        it('should send the attachment header', async () => {
+        
+
+        it('should attempt to send all valid attachments and notify of skipped ones', async () => {
             await whatsappService.forwardEmail(emailData);
 
-            expect(axios.post).toHaveBeenCalledWith(
-                expect.stringContaining('/sendMessage/'),
-                expect.objectContaining({
-                    message: '📎 *Attachments (2 sent, 1 skipped)*',
-                })
-            );
-        });
+            // 1 call for the main message, 2 for attachments, 1 for skipped
+            expect(axios.post).toHaveBeenCalledTimes(4);
 
-        it('should attempt to send all valid attachments', async () => {
-            await whatsappService.forwardEmail(emailData);
-
-            // one call for main message, one for header, two for attachments, one for skipped
-            // so, 2 calls to sendFileByUpload
-            expect(axios.post).toHaveBeenCalledTimes(5);
+            // Check that sendFile was called for each valid attachment
             expect(axios.post).toHaveBeenCalledWith(
                 expect.stringContaining('/sendFileByUpload/'),
-                expect.objectContaining({ fileName: 'document.pdf' })
+                expect.any(Object), // FormData
+                expect.any(Object)  // Headers
             );
-            expect(axios.post).toHaveBeenCalledWith(
-                expect.stringContaining('/sendFileByUpload/'),
-                expect.objectContaining({ fileName: 'image.png' })
-            );
-        });
 
-        it('should send a notification for skipped attachments', async () => {
-            await whatsappService.forwardEmail(emailData);
-
+            // Check that a notification is sent for skipped attachments
             expect(axios.post).toHaveBeenCalledWith(
                 expect.stringContaining('/sendMessage/'),
                 expect.objectContaining({
-                    message: expect.stringContaining('⚠️ Skipped attachment: large-file.zip'),
+                    message: expect.stringContaining('Skipped Attachments')
                 })
             );
         });
+
+        
     });
 });

@@ -1,272 +1,124 @@
-# Email to WhatsApp Forwarder
+# **🚀・Email to WhatsApp Forwarder**
 
-A Node.js application that automatically forwards emails from Gmail to WhatsApp using the Green API. The application monitors a Gmail inbox for emails from specific senders and forwards their content along with attachments to a designated WhatsApp number.
+### **Ever wanted your important emails to pop up right in your WhatsApp? Now they can! ✨**
 
-## Features
+Welcome to the Email to WhatsApp Forwarder! This application is your personal assistant, automatically monitoring your Gmail account for important emails from specific people and instantly forwarding them to you on WhatsApp. It's perfect for staying on top of urgent messages, whether it's from your boss, your clients, or your mom!
 
-- ✅ Automatic email monitoring with configurable intervals
-- ✅ Sender email filtering
-- ✅ Full email content forwarding (text and HTML)
-- ✅ Attachment support with size limits
-- ✅ Robust error handling and logging
-- ✅ Graceful shutdown with notifications
-- ✅ Automatic cleanup of old attachments
-- ✅ Reconnection handling for network issues
+---
 
-## Prerequisites
+### **📋・Table of Contents**
 
-Before you begin, ensure you have the following:
+- **✨・[What is This?](#what-is-this)**
+- **🛠️・[Getting Started](#getting-started)**
+- **⚙️・[Configuration](#configuration)**
+- **🗺️・[How to Use](#how-to-use)**
+- **💖・[Contributing](#contributing)**
+- **📜・[License](#license)**
+- **👋・[About Me!](#about-me)**
 
-1. **Node.js** (v18.0.0 or higher) - [Download here](https://nodejs.org/)
-2. **Git** - [Download here](https://git-scm.com/)
-3. **Gmail Account** with:
-   - 2-Factor Authentication enabled
-   - App Password generated
-4. **Green API Account** with:
-   - Active instance
-   - Valid API credentials
-5. **WhatsApp** number connected to Green API
+---
 
-## Installation
+### <div id="what-is-this">**✨・What is This?**</div>
 
-### Step 1: Clone the Repository
+The Email to WhatsApp Forwarder is a powerful Node.js application that connects to your Gmail account, watches for new emails from senders you specify, and forwards them directly to your WhatsApp number using the Green API. It handles text, HTML, and even attachments, so you never miss a beat!
 
-```bash
-git clone https://github.com/yourusername/email-to-whatsapp-forwarder.git
-cd email-to-whatsapp-forwarder
-```
+--- 
 
-### Step 2: Install Dependencies
+### <div id="getting-started">**🛠️・Getting Started (Let's Get This Running! 🎉)**</div>
 
-```bash
-npm install
-```
+Ready to get instant email notifications on WhatsApp? Here’s how to set it up:
 
-### Step 3: Configure Environment Variables
+1.  **Clone the magic!** ✨
+    
+    ```bash
+    git clone https://github.com/afluz/EmailToWhatsappForwarder.git
+    cd EmailToWhatsappForwarder
+    ```
 
-1. Copy the example environment file:
-   ```bash
-   cp .env.example .env
-   ```
+2.  **Install the dependencies!** 📦
+    
+    ```bash
+    npm install
+    ```
 
-2. Edit `.env` file with your credentials:
-   ```env
-   # Gmail Configuration
-   GMAIL_USER=abc123@gmail.com
-   GMAIL_APP_PASSWORD=your_16_character_app_password
-   
-   # Email Filter Configuration
-   SENDER_EMAIL_FILTER=test@gmail.com
-   
-   # Green API Configuration
-   GREEN_API_ID_INSTANCE=your_instance_id
-   GREEN_API_TOKEN=your_api_token
-   
-   # WhatsApp Configuration
-   WHATSAPP_TARGET_NUMBER=082298765432
-   ```
+3.  **Set up your environment!** 🔑
+    
+    Copy the example environment file:
+    
+    ```bash
+    cp .env.example .env.local
+    ```
+    
+    Now, open the `.env.local` file and fill in your details. See the [Configuration](#configuration) section for more info.
 
-## Configuration
 
-### Gmail App Password Setup
+---
 
-1. Go to [Google Account Settings](https://myaccount.google.com/)
-2. Navigate to Security → 2-Step Verification
-3. Enable 2-Step Verification if not already enabled
-4. Go to App passwords
-5. Select "Mail" and your device
-6. Generate and copy the 16-character password
-7. Use this password in your `.env` file
+### <div id="configuration">**⚙️・Configuration (The Nitty-Gritty Details!)**</div>
 
-### Green API Setup
+To get the forwarder working, you need to provide some key pieces of information in the `.env.local` file.
 
-1. Sign up at [Green API](https://green-api.com/)
-2. Create a new instance
-3. Connect your WhatsApp number by scanning QR code
-4. Copy your `idInstance` and `apiTokenInstance`
-5. Add these to your `.env` file
+#### **Gmail Setup (IMAP)**
 
-### Configuration Options
+-   `GMAIL_USER`: Your full Gmail address (e.g., `your.email@gmail.com`).
+-   `GMAIL_APP_PASSWORD`: A 16-character App Password for your Gmail account. **Do not use your regular password.**
+    -   **How to get an App Password:**
+        1.  Go to your [Google Account](https://myaccount.google.com/).
+        2.  Navigate to **Security** > **2-Step Verification** (you must have this enabled).
+        3.  At the bottom, click on **App passwords**.
+        4.  Select "Mail" for the app and "Other (Custom name)" for the device, give it a name (e.g., "WhatsApp Forwarder"), and click **Generate**.
+        5.  Copy the 16-character password and paste it into your `.env.local` file.
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `CHECK_INTERVAL_SECONDS` | Email check interval | 30 |
-| `LOG_LEVEL` | Logging level (error, warn, info, debug) | info |
-| `MAX_ATTACHMENT_SIZE_MB` | Maximum attachment size | 25 |
+#### **Green API Setup**
 
-## Usage
+-   `GREEN_API_ID_INSTANCE`: Your instance ID from Green API.
+-   `GREEN_API_TOKEN`: Your API token from Green API.
+    -   **How to get Green API credentials:**
+        1.  Sign up or log in at [Green API](https://green-api.com/).
+        2.  Create a new instance and connect your WhatsApp number by scanning the QR code.
+        3.  You'll find the `idInstance` and `apiTokenInstance` on your instance dashboard.
 
-### Starting the Application
+#### **Forwarding Rules**
+
+-   `SENDER_EMAIL_FILTER`: The email address(es) you want to forward from. For multiple emails, separate them with a comma (e.g., `boss@work.com,client@company.com`).
+-   `WHATSAPP_TARGET_NUMBER`: The WhatsApp number where you want to receive the forwarded emails (e.g., `6281234567890`).
+
+--- 
+
+### <div id="how-to-use">**🗺️・How to Use (Start the Magic! 🚀)**</div>
+
+Once everything is configured, starting the forwarder is simple:
 
 ```bash
 npm start
 ```
 
-Or for development with auto-restart:
+Or, for development with automatic restarting when you make changes:
 
 ```bash
 npm run dev
 ```
 
-### What Happens Next
+The application will start, test its connections, and begin monitoring your inbox. When a new email arrives from one of your specified senders, it will be beautifully formatted and sent to your WhatsApp!
 
-1. The application connects to Gmail via IMAP
-2. Tests WhatsApp connection and sends a confirmation message
-3. Starts monitoring for new emails every 30 seconds
-4. When an email from the specified sender arrives:
-   - Extracts the email content
-   - Downloads any attachments
-   - Forwards everything to the target WhatsApp number
-   - Marks the email as read
+--- 
 
-### Message Format
+### <div id="contributing">**💖・Contributing (Join the Fun! 🎉)**</div>
 
-Forwarded emails appear in WhatsApp as:
+Have an idea to make this even better? Found a bug? We'd love your help! Check out our `CONTRIBUTING.md` file for guidelines on how to contribute.
 
-```
-📧 Email Forward
-From: test@gmail.com
-To: abc123@gmail.com
-Subject: Important Document
-Date: 2025-01-15 10:30:00
-──────────────────────────────
+--- 
 
-[Email content here]
+### <div id="license">**📜・License (The Legal Stuff, but Friendly! 🤝)**</div>
 
-📎 Attachments (2)
-📄 document.pdf
-💾 Size: 1.2 MB
-```
+This project is open-source and distributed under the MIT License. Feel free to use, modify, and share it! See the `LICENSE` file for more details.
 
-## Logging
+---
 
-Logs are stored in the `logs/` directory:
+### <div id="about-me">**👋・About Me!**</div>
 
-- `combined.log` - All application logs
-- `error.log` - Error logs only
+**Muhammad Zulfa Fauzan Nurhuda**
 
-Log files are automatically rotated when they reach 5MB, keeping the last 5 files.
+A passionate developer who loves building cool and useful things. Let's connect!
 
-## Troubleshooting
-
-### Common Issues
-
-#### Gmail Connection Failed
-
-**Error**: `IMAP connection error: Invalid credentials`
-
-**Solution**:
-- Verify your Gmail address is correct
-- Ensure you're using an App Password, not your regular password
-- Check that IMAP is enabled in Gmail settings
-
-#### WhatsApp Not Authorized
-
-**Error**: `WhatsApp instance is not authorized`
-
-**Solution**:
-- Log into Green API dashboard
-- Check if your instance is active
-- Re-scan the QR code if needed
-- Verify your API credentials
-
-#### Attachments Not Sending
-
-**Error**: `Failed to send attachment`
-
-**Solution**:
-- Check file size (default limit: 25MB)
-- Ensure the file type is supported by WhatsApp
-- Verify sufficient disk space for temporary storage
-
-### Debug Mode
-
-Enable debug logging for more detailed information:
-
-```env
-LOG_LEVEL=debug
-```
-
-## Project Structure
-
-```
-email-to-whatsapp-forwarder/
-├── src/
-│   ├── services/
-│   │   ├── gmailService.js      # Gmail IMAP operations
-│   │   └── whatsappService.js   # WhatsApp API operations
-│   ├── utils/
-│   │   ├── logger.js            # Winston logger configuration
-│   │   └── config.js            # Environment configuration
-│   └── app.js                   # Main application entry
-├── logs/                        # Log files (auto-created)
-├── attachments/                 # Temporary attachment storage
-├── .env                         # Environment variables
-├── .env.example                 # Example configuration
-├── .gitignore                   # Git ignore rules
-├── package.json                 # Project dependencies
-├── README.md                    # This file
-└── LICENSE                      # MIT License
-```
-
-## API Reference
-
-### GmailService
-
-```javascript
-// Connect to Gmail IMAP server
-await gmailService.connect();
-
-// Check for new emails
-const emails = await gmailService.checkEmails();
-
-// Process email with attachments
-const processedEmail = await gmailService.processEmail(rawEmail);
-```
-
-### WhatsAppService
-
-```javascript
-// Send text message
-await whatsappService.sendTextMessage(recipient, message);
-
-// Send file with caption
-await whatsappService.sendFile(recipient, filepath, caption, filename);
-
-// Forward complete email
-await whatsappService.forwardEmail(emailData);
-```
-
-## Security Considerations
-
-1. **Never commit `.env` file** - It contains sensitive credentials
-2. **Use App Passwords** - More secure than regular passwords
-3. **Limit attachment size** - Prevent memory issues
-4. **Regular cleanup** - Attachments are deleted after 7 days
-5. **Secure your server** - The app should run in a secure environment
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-For issues and questions:
-- Check the [Troubleshooting](#troubleshooting) section
-- Review logs in the `logs/` directory
-- Open an issue on GitHub
-
-## Acknowledgments
-
-- [node-imap](https://github.com/mscdex/node-imap) - IMAP client
-- [mailparser](https://github.com/nodemailer/mailparser) - Email parsing
-- [Green API](https://green-api.com/) - WhatsApp API service
-- [Winston](https://github.com/winstonjs/winston) - Logging library
+<img src="https://i.imgur.com/Zp8msEG.png" alt="Logo ITB" height="90" style="border-radius: 10px">

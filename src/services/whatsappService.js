@@ -1,90 +1,106 @@
 /**
- * WhatsApp Service Module using Green API
+ * @file Manages all interactions with the Green API for sending WhatsApp messages.
  * @module services/whatsappService
+ * @requires axios
+ * @requires form-data
+ * @requires fs
+ * @requires path
+ * @requires ../utils/config
+ * @requires ../utils/logger
+ * @requires ../utils/formatter
+ * @requires ../utils/helpers
  */
 
 const axios = require("axios");
 const FormData = require("form-data");
 const fs = require("fs");
-const path = require("path");
 const { config } = require("../utils/config");
 const logger = require("../utils/logger");
 const { stripHtml, formatFileSize } = require("../utils/formatter");
 const { delay } = require("../utils/helpers");
 
 /**
- * WhatsApp Service Class for sending messages via Green API
+ * @class WhatsAppService
+ * @description Handles the formatting and sending of messages and files via the Green API.
  */
 class WhatsAppService {
     /**
-     * Creates an instance of WhatsAppService
+     * Initializes a new instance of the WhatsAppService, setting up API clients.
      */
     constructor() {
-        this.baseUrl = config.greenApi.baseUrl;
+        /** @type {string} The Green API instance ID. */
         this.idInstance = config.greenApi.idInstance;
+        /** @type {string} The Green API instance token. */
         this.apiToken = config.greenApi.apiToken;
-        this.apiClient = this.createApiClient();
-    }
 
-    /**
-     * Creates an axios instance with default configuration
-     * @returns {Object} Axios instance
-     */
-    createApiClient() {
-        return axios.create({
-            baseURL: `${this.baseUrl}/waInstance${this.idInstance}`,
-            timeout: 30000,
-            headers: {
-                "Content-Type": "application/json",
-            },
+        /**
+         * @type {axios.AxiosInstance}
+         * An Axios client for standard JSON-based API calls (e.g., sending text messages).
+         */
+        this.apiClient = axios.create({
+            baseURL: `${config.greenApi.baseUrl}/waInstance${this.idInstance}`,
+            timeout: 30000, // 30-second timeout for standard requests
+            headers: { "Content-Type": "application/json" },
+        });
+
+        /**
+         * @type {axios.AxiosInstance}
+         * An Axios client specifically for media uploads, which use multipart/form-data.
+         */
+        this.mediaApiClient = axios.create({
+            baseURL: `${config.greenApi.mediaUrl}/waInstance${this.idInstance}`,
+            timeout: 60000, // 60-second timeout to accommodate larger file uploads
         });
     }
 
     /**
-     * Formats phone number for WhatsApp API
-     * @param {string} phoneNumber - Phone number to format
-     * @returns {string} Formatted phone number
+     * Formats a standard phone number into the WhatsApp-specific format (e.g., "6281234567890@c.us").
+     * @param {string} phoneNumber - The phone number to format.
+     * @returns {string} The formatted WhatsApp chat ID.
      */
     formatPhoneNumber(phoneNumber) {
-        // Remove all non-numeric characters
+        // Remove all non-numeric characters.
         let cleaned = phoneNumber.replace(/\D/g, "");
 
-        // Add country code if not present (assuming Indonesia)
+        // If the number starts with '0', replace it with the country code (assuming '62' for Indonesia).
         if (cleaned.startsWith("0")) {
             cleaned = "62" + cleaned.substring(1);
         }
 
-        // Add WhatsApp suffix
+        // Append the standard WhatsApp suffix for user chats.
         return cleaned + "@c.us";
     }
 
     /**
-     * Checks the status of WhatsApp instance
-     * @returns {Promise<Object>} Instance status
+     * Checks the authorization status of the Green API instance.
+     * @returns {Promise<object>} A promise that resolves with the instance status data.
      */
     async checkStatus() {
         try {
             const response = await this.apiClient.get(
                 `/getStateInstance/${this.apiToken}`,
             );
-            logger.info("WhatsApp instance status:", response.data);
+            logger.info("WhatsApp Service: Instance status checked successfully.", {
+                status: response.data,
+            });
             return response.data;
         } catch (error) {
-            logger.error("Failed to check WhatsApp status:", error.message);
-            throw error;
+            logger.error("WhatsApp Service: Failed to check instance status.", {
+                message: error.message,
+            });
+            throw error; // Propagate the error for handling in the main application loop.
         }
     }
 
     /**
-     * Sends a text message via WhatsApp
-     * @param {string} recipient - Recipient phone number
-     * @param {string} message - Message text
-     * @returns {Promise<Object>} API response
+     * Sends a plain text message to a specified recipient.
+     * @param {string} recipient - The recipient's phone number.
+     * @param {string} message - The text message to send.
+     * @returns {Promise<object>} A promise that resolves with the API response.
      */
     async sendTextMessage(recipient, message) {
         try {
             const formattedRecipient = this.formatPhoneNumber(recipient);
-
             const response = await this.apiClient.post(
                 `/sendMessage/${this.apiToken}`,
                 {
@@ -92,195 +108,161 @@ class WhatsAppService {
                     message: message,
                 },
             );
-
-            logger.info(`Text message sent to ${recipient}`);
+            logger.info(
+                `WhatsApp Service: Text message sent successfully to ${recipient}.`,
+            );
             return response.data;
         } catch (error) {
-            logger.error("Failed to send text message:", error.message);
+            logger.error(
+                `WhatsApp Service: Failed to send text message to ${recipient}.`,
+                { message: error.message },
+            );
             throw error;
         }
     }
 
     /**
-     * Sends a file via WhatsApp
-     * @param {string} recipient - Recipient phone number
-     * @param {string} filePath - Path to the file
-     * @param {string} caption - File caption
-     * @param {string} filename - Original filename
-     * @returns {Promise<Object>} API response
+     * Uploads and sends a file (document, image, etc.) to a specified recipient.
+     * @param {string} recipient - The recipient's phone number.
+     * @param {string} filePath - The local path to the file to be sent.
+     * @param {string} caption - The caption to send along with the file.
+     * @param {string} filename - The original name of the file.
+     * @returns {Promise<object>} A promise that resolves with the API response.
      */
     async sendFile(recipient, filePath, caption, filename) {
         try {
             const formattedRecipient = this.formatPhoneNumber(recipient);
 
-            // Read file as base64
-            const fileBuffer = fs.readFileSync(filePath);
-            const base64File = fileBuffer.toString("base64");
+            // Use FormData to construct a multipart/form-data request.
+            const form = new FormData();
+            form.append("chatId", formattedRecipient);
+            form.append("file", fs.createReadStream(filePath));
+            form.append("caption", caption || "");
+            form.append("fileName", filename);
 
-            const response = await this.apiClient.post(
+            const response = await this.mediaApiClient.post(
                 `/sendFileByUpload/${this.apiToken}`,
-                {
-                    chatId: formattedRecipient,
-                    file: base64File,
-                    fileName: filename,
-                    caption: caption || "",
-                },
+                form,
+                { headers: form.getHeaders() }, // Let FormData set the correct headers.
             );
 
-            logger.info(`File ${filename} sent to ${recipient}`);
+            logger.info(
+                `WhatsApp Service: File sent successfully to ${recipient}: ${filename}`,
+            );
             return response.data;
         } catch (error) {
-            logger.error(`Failed to send file ${filename}:`, error.message);
+            logger.error(`WhatsApp Service: Failed to send file.`, {
+                message: error.message,
+                fileName: filename,
+                recipient: recipient,
+            });
             throw error;
         }
     }
 
     /**
-     * Sends an image via WhatsApp
-     * @param {string} recipient - Recipient phone number
-     * @param {string} imagePath - Path to the image
-     * @param {string} caption - Image caption
-     * @returns {Promise<Object>} API response
-     */
-    async sendImage(recipient, imagePath, caption) {
-        try {
-            const formattedRecipient = this.formatPhoneNumber(recipient);
-
-            // Read image as base64
-            const imageBuffer = fs.readFileSync(imagePath);
-            const base64Image = imageBuffer.toString("base64");
-
-            const response = await this.apiClient.post(
-                `/sendFileByUpload/${this.apiToken}`,
-                {
-                    chatId: formattedRecipient,
-                    file: base64Image,
-                    fileName: path.basename(imagePath),
-                    caption: caption || "",
-                },
-            );
-
-            logger.info(`Image sent to ${recipient}`);
-            return response.data;
-        } catch (error) {
-            logger.error("Failed to send image:", error.message);
-            throw error;
-        }
-    }
-
-    /**
-     * Forwards an email to WhatsApp
-     * @param {Object} emailData - Processed email data
+     * Formats and forwards a processed email data object to the target WhatsApp number.
+     * @param {object} emailData - The processed email data from GmailService.
      * @returns {Promise<void>}
      */
     async forwardEmail(emailData) {
         try {
-            // Prepare the message
-            const header = `📧 *Email Forward*\n`;
-            const from = `*From:* ${emailData.from}\n`;
-            const to = `*To:* ${emailData.to}\n`;
-            const subject = `*Subject:* ${emailData.subject}\n`;
-            const date = `*Date:* ${
-                new Date(emailData.date).toLocaleString()
-            }\n`;
-            const separator = `${"─".repeat(30)}\n`;
+            const separator = "───";
 
-            // Use text content, fallback to HTML if text is empty
-            const content = emailData.text || stripHtml(emailData.html);
+            // --- Assemble the main message body ---
+            const header = `*📧 >> EMAIL TO WHATSAPP FORWARDER*`;
+            const infoHeader = `*ℹ️ - EMAIL INFORMATION*`;
+            const from = `*From:* ${emailData.from}`;
+            const to = `*To:* ${emailData.to}`;
+            const date = `*Date:* ${new Date(emailData.date).toLocaleString()}`;
+            const contentHeader = `*📝 - EMAIL CONTENT*`;
+            const subject = `*Subject:* ${emailData.subject}`;
+            const body = emailData.text || stripHtml(emailData.html);
 
-            const message =
-                `${header}${from}${to}${subject}${date}${separator}\n${content}`;
+            // --- Attachment Information ---
+            const totalAttachments = (emailData.attachments?.length || 0) + (emailData.skippedAttachments?.length || 0);
+            let attachmentText = "";
+            if (totalAttachments > 0) {
+                attachmentText = `*📎 Attachments (${emailData.attachments.length} sent, ${emailData.skippedAttachments.length} skipped)*`;
+            }
 
-            // Send the main message
+            // --- Construct the final message ---
+            let message = `${header}\n\n${separator}\n\n${infoHeader}\n\n${from}\n${to}\n${date}\n\n${separator}\n\n${contentHeader}\n\n${subject}\n\n${body}`;
+            if (attachmentText) {
+                message += `\n\n${separator}\n\n${attachmentText}`;
+            }
+
+            // Send the consolidated text message.
             await this.sendTextMessage(config.whatsapp.targetNumber, message);
 
-            // Send attachments if any
-            const totalAttachments = (emailData.attachments?.length || 0) + (emailData.skippedAttachments?.length || 0);
-            if (totalAttachments > 0) {
-                const attachmentHeader =
-                    `📎 *Attachments (${emailData.attachments.length} sent, ${emailData.skippedAttachments.length} skipped)*`;
-                await this.sendTextMessage(
-                    config.whatsapp.targetNumber,
-                    attachmentHeader,
-                );
-
-                for (const attachment of emailData.attachments) {
-                    try {
-                        const caption = `📄 ${attachment.filename}\n💾 Size: ${
-                            formatFileSize(attachment.size)
-                        }`;
-
-                        const imageExtensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"];
-                        const isImage = imageExtensions.some((ext) =>
-                            attachment.filename.toLowerCase().endsWith(ext)
-                        );
-
-                        if (isImage) {
-                            await this.sendImage(
-                                config.whatsapp.targetNumber,
-                                attachment.filepath,
-                                caption,
-                            );
-                        } else {
-                            await this.sendFile(
-                                config.whatsapp.targetNumber,
-                                attachment.filepath,
-                                caption,
-                                attachment.filename,
-                            );
-                        }
-
-                        await delay(2000);
-                    } catch (error) {
-                        logger.error(`Failed to send attachment ${attachment.filename}:`, error);
-                        const errorMessage = `❌ Failed to send attachment: ${attachment.filename}`;
-                        await this.sendTextMessage(config.whatsapp.targetNumber, errorMessage);
-                    }
-                }
-
-                // Notify about skipped attachments
-                for (const skipped of emailData.skippedAttachments) {
-                    const skippedMessage = `⚠️ Skipped attachment: ${skipped.filename} (${formatFileSize(skipped.size)}) - Reason: ${skipped.reason}`;
-                    await this.sendTextMessage(config.whatsapp.targetNumber, skippedMessage);
-                    await delay(1000);
+            // --- Send Attachments ---
+            for (const attachment of emailData.attachments) {
+                try {
+                    const caption = `📄 ${attachment.filename}\n💾 Size: ${formatFileSize(attachment.size)}`;
+                    await this.sendFile(
+                        config.whatsapp.targetNumber,
+                        attachment.filepath,
+                        caption,
+                        attachment.filename,
+                    );
+                    await delay(2000); // Add a delay to avoid rate-limiting issues.
+                } catch (error) {
+                    logger.error(`WhatsApp Service: Failed to send attachment.`, {
+                        message: error.message,
+                        fileName: attachment.filename,
+                    });
+                    // Send a failure notification to WhatsApp for the specific attachment.
+                    const errorMessage = `❌ Failed to send attachment: ${attachment.filename}`;
+                    await this.sendTextMessage(config.whatsapp.targetNumber, errorMessage);
                 }
             }
 
-            logger.info(`Email forwarded successfully: ${emailData.subject}`);
+            // --- Notify about Skipped Attachments ---
+            if (emailData.skippedAttachments.length > 0) {
+                let skippedMessage = "*⚠️ Skipped Attachments:*\n";
+                for (const skipped of emailData.skippedAttachments) {
+                    skippedMessage += `- ${skipped.filename} (${formatFileSize(skipped.size)}) - ${skipped.reason}\n`;
+                }
+                await this.sendTextMessage(config.whatsapp.targetNumber, skippedMessage.trim());
+                await delay(1000);
+            }
+
+            logger.info(`WhatsApp Service: Email with subject "${emailData.subject}" was forwarded successfully.`);
         } catch (error) {
-            logger.error("Failed to forward email:", error);
+            logger.error(`WhatsApp Service: Failed to forward email with subject "${emailData.subject}".`, { error });
             throw error;
         }
     }
 
-
     /**
-     * Sends a notification message
-     * @param {string} message - Notification message
-     * @returns {Promise<Object>} API response
+     * Sends a simple notification message to the configured target number.
+     * @param {string} message - The notification message to send.
+     * @returns {Promise<object>} A promise that resolves with the API response.
      */
     async sendNotification(message) {
         return this.sendTextMessage(config.whatsapp.targetNumber, message);
     }
 
     /**
-     * Tests the WhatsApp connection
-     * @returns {Promise<boolean>} Connection status
+     * Tests the connection to the WhatsApp API by checking the instance status.
+     * Sends a success or failure notification.
+     * @returns {Promise<boolean>} A promise that resolves with `true` if authorized, otherwise `false`.
      */
     async testConnection() {
         try {
             const status = await this.checkStatus();
             if (status.stateInstance === "authorized") {
-                await this.sendNotification(
-                    "✅ Email to WhatsApp Forwarder is connected and running!",
-                );
+                logger.info("WhatsApp Service: Connection test successful. Instance is authorized.");
+                await this.sendNotification("✅ Email to WhatsApp Forwarder is connected and running!");
                 return true;
             } else {
-                logger.error("WhatsApp instance is not authorized");
+                logger.error("WhatsApp Service: Connection test failed. Instance is not authorized.", { status: status.stateInstance });
+                await this.sendNotification("❌ Email to WhatsApp Forwarder connection failed. Instance is not authorized.");
                 return false;
             }
         } catch (error) {
-            logger.error("WhatsApp connection test failed:", error);
+            logger.error("WhatsApp Service: Connection test failed with an error.", { error });
+            // Avoid sending a notification here as the failure might be related to sending messages itself.
             return false;
         }
     }

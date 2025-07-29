@@ -1,6 +1,12 @@
 /**
- * Gmail Service Module
+ * @file Manages all interactions with the Gmail IMAP server.
  * @module services/gmailService
+ * @requires imap
+ * @requires mailparser
+ * @requires fs.promises
+ * @requires path
+ * @requires ../utils/config
+ * @requires ../utils/logger
  */
 
 const Imap = require("imap");
@@ -11,34 +17,43 @@ const { config } = require("../utils/config");
 const logger = require("../utils/logger");
 
 /**
- * Gmail Service Class for handling email operations
+ * @class GmailService
+ * @description Handles connecting to Gmail, fetching, parsing, and processing emails.
  */
 class GmailService {
     /**
-     * Creates an instance of GmailService
+     * Initializes a new instance of the GmailService.
      */
     constructor() {
+        /** @type {Imap|null} The IMAP connection instance. */
         this.imap = null;
+        /** @type {boolean} Flag indicating the connection status. */
         this.isConnected = false;
+        /** @type {string} The absolute path to the directory where attachments are stored. */
         this.attachmentsDir = path.join(process.cwd(), "attachments");
     }
 
     /**
-     * Initializes the service by creating necessary directories
+     * Ensures the attachments directory exists.
+     * This is called at startup to prepare for saving attachments.
+     * @returns {Promise<void>}
      */
     async initialize() {
         try {
             await fs.mkdir(this.attachmentsDir, { recursive: true });
-            logger.info("Gmail service initialized");
+            logger.info("Gmail Service: Attachments directory is ready.");
         } catch (error) {
-            logger.error("Failed to initialize Gmail service:", error);
-            throw error;
+            logger.error(
+                "Gmail Service: Failed to create attachments directory.",
+                { error },
+            );
+            throw error; // Propagate the error to halt startup if necessary.
         }
     }
 
     /**
-     * Connects to Gmail IMAP server
-     * @returns {Promise<void>}
+     * Establishes a connection to the Gmail IMAP server using credentials from the config.
+     * @returns {Promise<void>} A promise that resolves on successful connection or rejects on error.
      */
     connect() {
         return new Promise((resolve, reject) => {
@@ -48,167 +63,167 @@ class GmailService {
                 host: config.gmail.host,
                 port: config.gmail.port,
                 tls: config.gmail.tls,
-                tlsOptions: { rejectUnauthorized: false },
+                tlsOptions: { rejectUnauthorized: false }, // Necessary for some environments
             });
 
+            // --- IMAP Event Handlers ---
             this.imap.once("ready", () => {
                 this.isConnected = true;
-                logger.info("Connected to Gmail IMAP server");
+                logger.info("Gmail Service: Successfully connected to IMAP server.");
                 resolve();
             });
 
             this.imap.once("error", (err) => {
-                logger.error("IMAP connection error:", err);
+                logger.error("Gmail Service: IMAP connection error.", { error: err });
                 this.isConnected = false;
                 reject(err);
             });
 
             this.imap.once("end", () => {
                 this.isConnected = false;
-                logger.info("IMAP connection ended");
+                logger.info("Gmail Service: IMAP connection has ended.");
             });
 
+            // Initiate the connection.
             this.imap.connect();
         });
     }
 
     /**
-     * Opens the inbox folder
-     * @returns {Promise<Object>} Box object
+     * Opens the INBOX mailbox.
+     * @returns {Promise<object>} A promise that resolves with the mailbox object or rejects on error.
      */
     openInbox() {
         return new Promise((resolve, reject) => {
             this.imap.openBox("INBOX", false, (err, box) => {
                 if (err) {
-                    logger.error("Failed to open inbox:", err);
-                    reject(err);
-                } else {
-                    resolve(box);
+                    logger.error("Gmail Service: Failed to open INBOX.", { error: err });
+                    return reject(err);
                 }
+                logger.info("Gmail Service: INBOX opened successfully.");
+                resolve(box);
             });
         });
     }
 
     /**
-     * Searches for unread emails from specific senders
-     * @returns {Promise<number[]>} Array of email UIDs
+     * Searches for unread emails from the senders specified in the configuration.
+     * @returns {Promise<number[]>} A promise that resolves with an array of email UIDs.
      */
     searchUnreadFromSenders() {
         return new Promise((resolve, reject) => {
+            // Get and parse the list of sender emails from config.
             const senders = config.filter.senderEmail
                 .split(",")
                 .map((s) => s.trim())
                 .filter(Boolean);
 
             if (senders.length === 0) {
-                logger.warn("No sender emails configured for filtering.");
+                logger.warn("Gmail Service: No sender emails configured for filtering. Skipping search.");
                 return resolve([]);
             }
 
+            // Construct the IMAP search criteria.
             const searchCriteria = ["UNSEEN"];
-            if (senders.length > 1) {
-                const senderCriteria = senders.map(sender => ["FROM", sender]);
+            const senderCriteria = senders.map(sender => ["FROM", sender]);
+            
+            // Use OR for multiple senders.
+            if (senderCriteria.length > 1) {
                 searchCriteria.push("OR", ...senderCriteria);
             } else {
-                searchCriteria.push(["FROM", senders[0]]);
+                searchCriteria.push(...senderCriteria);
             }
 
             this.imap.search(searchCriteria, (err, results) => {
                 if (err) {
-                    logger.error("Search failed:", err);
-                    reject(err);
-                } else {
-                    logger.info(
-                        `Found ${results.length} unread emails from configured senders.`,
-                    );
-                    resolve(results);
+                    logger.error("Gmail Service: Email search failed.", { error: err });
+                    return reject(err);
                 }
+                if (results.length > 0) {
+                    logger.info(
+                        `Gmail Service: Found ${results.length} new email(s) from [${senders.join(", ")}]`,
+                    );
+                }
+                resolve(results);
             });
         });
     }
 
     /**
-     * Fetches and parses an email by UID
-     * @param {number} uid - Email UID
-     * @returns {Promise<Object>} Parsed email object
+     * Fetches the full content of an email by its UID and parses it.
+     * @param {number} uid - The Unique ID of the email to fetch.
+     * @returns {Promise<object>} A promise that resolves with the parsed email object.
      */
     fetchEmail(uid) {
         return new Promise((resolve, reject) => {
             const fetch = this.imap.fetch(uid, {
-                bodies: "",
-                markSeen: true,
+                bodies: "", // Fetch the entire message body
+                markSeen: true, // Mark the email as read upon fetching
             });
 
             let buffer = "";
-
             fetch.on("message", (msg) => {
                 msg.on("body", (stream) => {
                     stream.on("data", (chunk) => {
                         buffer += chunk.toString("utf8");
                     });
                 });
-
                 msg.once("end", async () => {
                     try {
+                        // Use mailparser to parse the raw email buffer.
                         const parsed = await simpleParser(buffer);
                         resolve(parsed);
                     } catch (parseError) {
-                        logger.error("Failed to parse email:", parseError);
+                        logger.error("Gmail Service: Failed to parse email.", { uid, error: parseError });
                         reject(parseError);
                     }
                 });
             });
 
             fetch.once("error", (err) => {
-                logger.error("Fetch error:", err);
+                logger.error("Gmail Service: Email fetch error.", { uid, error: err });
                 reject(err);
-            });
-
-            fetch.once("end", () => {
-                logger.debug(`Fetched email UID: ${uid}`);
             });
         });
     }
 
     /**
-     * Processes email content and attachments
-     * @param {Object} email - Parsed email object
-     * @returns {Promise<Object>} Processed email data
+     * Processes a parsed email object: extracts key information and handles attachments.
+     * @param {object} email - The parsed email object from `simpleParser`.
+     * @returns {Promise<object>} A structured object containing the email data and attachment details.
      */
     async processEmail(email) {
         const processedData = {
-            from: email.from.text,
-            to: email.to.text,
+            from: email.from?.text || "",
+            to: email.to?.text || "",
             subject: email.subject || "(No Subject)",
-            date: email.date,
+            date: email.date || new Date(),
             text: email.text || "",
             html: email.html || "",
             attachments: [],
             skippedAttachments: [],
         };
 
-        // Process attachments
         if (email.attachments && email.attachments.length > 0) {
             for (const attachment of email.attachments) {
                 try {
-                    // Check attachment size
+                    // Check if the attachment exceeds the configured size limit.
                     const sizeMB = attachment.size / (1024 * 1024);
                     if (sizeMB > config.app.maxAttachmentSizeMB) {
                         logger.warn(
-                            `Skipping attachment ${attachment.filename} because it exceeds the size limit (${sizeMB.toFixed(2)}MB).`,
+                            `Skipping attachment "${attachment.filename}" because it exceeds the size limit (${sizeMB.toFixed(2)}MB).`,
                         );
                         processedData.skippedAttachments.push({
                             filename: attachment.filename,
                             size: attachment.size,
                             reason: "Exceeds size limit",
                         });
-                        continue;
+                        continue; // Skip to the next attachment
                     }
 
-                    // Save attachment
+                    // Save the attachment to the local filesystem.
                     const filename = `${Date.now()}_${attachment.filename}`;
                     const filepath = path.join(this.attachmentsDir, filename);
-
                     await fs.writeFile(filepath, attachment.content);
 
                     processedData.attachments.push({
@@ -217,12 +232,11 @@ class GmailService {
                         contentType: attachment.contentType,
                         size: attachment.size,
                     });
-
-                    logger.info(`Saved attachment: ${filename}`);
+                    logger.info(`Gmail Service: Attachment saved successfully: "${filename}"`);
                 } catch (error) {
                     logger.error(
-                        `Failed to save attachment ${attachment.filename}:`,
-                        error,
+                        `Gmail Service: Failed to save attachment "${attachment.filename}".`,
+                        { error },
                     );
                 }
             }
@@ -232,32 +246,13 @@ class GmailService {
     }
 
     /**
-     * Marks an email as seen
-     * @param {number} uid - Email UID
-     * @returns {Promise<void>}
-     */
-    markAsSeen(uid) {
-        return new Promise((resolve, reject) => {
-            this.imap.addFlags(uid, "\\Seen", (err) => {
-                if (err) {
-                    logger.error(`Failed to mark email ${uid} as seen:`, err);
-                    reject(err);
-                } else {
-                    logger.debug(`Marked email ${uid} as seen`);
-                    resolve();
-                }
-            });
-        });
-    }
-
-    /**
-     * Checks for new emails and processes them
-     * @returns {Promise<Object[]>} Array of processed emails
+     * The main workflow method to check for and process new emails.
+     * @returns {Promise<object[]>} A promise that resolves with an array of all processed emails.
      */
     async checkEmails() {
         const processedEmails = [];
-
         try {
+            // Connect if not already connected.
             if (!this.isConnected) {
                 await this.connect();
             }
@@ -265,39 +260,39 @@ class GmailService {
             await this.openInbox();
             const uids = await this.searchUnreadFromSenders();
 
+            // Process each found email UID.
             for (const uid of uids) {
                 try {
                     const email = await this.fetchEmail(uid);
                     const processedEmail = await this.processEmail(email);
                     processedEmails.push(processedEmail);
-
-                    logger.info(`Processed email: ${processedEmail.subject}`);
+                    logger.info(`Gmail Service: Successfully processed email UID ${uid} with subject "${processedEmail.subject}".`);
                 } catch (error) {
-                    logger.error(`Failed to process email UID ${uid}:`, error);
+                    logger.error(`Gmail Service: Failed to process email UID ${uid}.`, { error });
                 }
             }
 
             return processedEmails;
         } catch (error) {
-            logger.error("Email check failed:", error);
+            logger.error("Gmail Service: A critical error occurred during the email check cycle.", { error });
+            // Re-throw to allow the main loop to handle reconnection logic.
             throw error;
         }
     }
 
     /**
-     * Disconnects from Gmail IMAP server
+     * Gracefully disconnects from the IMAP server.
      */
     disconnect() {
         if (this.imap && this.isConnected) {
             this.imap.end();
-            this.isConnected = false;
-            logger.info("Disconnected from Gmail IMAP server");
         }
     }
 
     /**
-     * Cleans up old attachments
-     * @param {number} daysToKeep - Number of days to keep attachments
+     * Cleans up old attachments from the attachments directory.
+     * @param {number} [daysToKeep=7] - The number of days to keep attachment files.
+     * @returns {Promise<void>}
      */
     async cleanupAttachments(daysToKeep = 7) {
         try {
@@ -309,13 +304,15 @@ class GmailService {
                 const filepath = path.join(this.attachmentsDir, file);
                 const stats = await fs.stat(filepath);
 
+                // If the file is older than the cutoff time, delete it.
                 if (now - stats.mtimeMs > cutoffTime) {
                     await fs.unlink(filepath);
-                    logger.info(`Deleted old attachment: ${file}`);
+                    logger.info(`Gmail Service: Deleted old attachment: "${file}"`);
                 }
             }
         } catch (error) {
-            logger.error("Failed to cleanup attachments:", error);
+            // Log errors but don't throw, as cleanup is a non-critical background task.
+            logger.error("Gmail Service: Failed to cleanup old attachments.", { error });
         }
     }
 }
