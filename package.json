@@ -1,0 +1,39 @@
+{
+    "name": "EmailToWhatsappForwarder",
+    "version": "1.0.0",
+    "description": "A Node.js application that forwards emails from Gmail to WhatsApp using Green API",
+    "main": "src/app.js",
+    "type": "commonjs",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ZulfaNurhuda/EmailToWhatsappForwarder.git"
+    },
+    "scripts": {
+        "start": "node src/app.js",
+        "dev": "nodemon src/app.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "email",
+        "whatsapp",
+        "forwarder",
+        "gmail",
+        "automation"
+    ],
+    "author": "ZulfaNurhuda",
+    "license": "MIT",
+    "dependencies": {
+        "axios": "^1.6.2",
+        "dotenv": "^16.3.1",
+        "form-data": "^4.0.0",
+        "imap": "^0.8.17",
+        "mailparser": "^3.6.5",
+        "winston": "^3.11.0"
+    },
+    "devDependencies": {
+        "nodemon": "^3.0.2"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}
