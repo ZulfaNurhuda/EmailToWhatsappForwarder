@@ -15,6 +15,26 @@ if (!fs.existsSync(logsDir)) {
 }
 
 /**
+ * Safely stringifies an object, handling circular references.
+ * @param {Object} obj - The object to stringify.
+ * @returns {string} The JSON string.
+ */
+const safeStringify = (obj) => {
+    const cache = new Set();
+    return JSON.stringify(obj, (key, value) => {
+        if (typeof value === 'object' && value !== null) {
+            if (cache.has(value)) {
+                // Circular reference found, discard key
+                return '[Circular]';
+            }
+            // Store value in our collection
+            cache.add(value);
+        }
+        return value;
+    }, 2); // The '2' argument prettifies the JSON output
+};
+
+/**
  * Custom format for console output
  */
 const consoleFormat = winston.format.combine(
@@ -22,7 +42,7 @@ const consoleFormat = winston.format.combine(
     winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
     winston.format.printf(({ timestamp, level, message, ...meta }) => {
         const metaStr = Object.keys(meta).length
-            ? JSON.stringify(meta, null, 2)
+            ? safeStringify(meta)
             : "";
         return `${timestamp} [${level}]: ${message} ${metaStr}`;
     }),

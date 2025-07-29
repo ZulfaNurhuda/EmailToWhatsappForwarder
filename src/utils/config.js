@@ -45,6 +45,7 @@ const config = {
         idInstance: process.env.GREEN_API_ID_INSTANCE || "",
         apiToken: process.env.GREEN_API_TOKEN || "",
         baseUrl: process.env.GREEN_API_BASE_URL || "https://api.green-api.com",
+        mediaUrl: process.env.GREEN_API_MEDIA_URL || "https://media.green-api.com",
     },
     whatsapp: {
         senderNumber: process.env.WHATSAPP_SENDER_NUMBER || "",

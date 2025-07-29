@@ -20,23 +20,21 @@ class WhatsAppService {
      * Creates an instance of WhatsAppService
      */
     constructor() {
-        this.baseUrl = config.greenApi.baseUrl;
         this.idInstance = config.greenApi.idInstance;
         this.apiToken = config.greenApi.apiToken;
-        this.apiClient = this.createApiClient();
-    }
 
-    /**
-     * Creates an axios instance with default configuration
-     * @returns {Object} Axios instance
-     */
-    createApiClient() {
-        return axios.create({
-            baseURL: `${this.baseUrl}/waInstance${this.idInstance}`,
+        // Client for standard API calls
+        this.apiClient = axios.create({
+            baseURL: `${config.greenApi.baseUrl}/waInstance${this.idInstance}`,
             timeout: 30000,
-            headers: {
-                "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
+        });
+
+        // Client for media uploads
+        this.mediaApiClient = axios.create({
+            baseURL: `${config.greenApi.mediaUrl}/waInstance${this.idInstance}`,
+            timeout: 60000, // Longer timeout for uploads
+            headers: { "Content-Type": "application/json" },
         });
     }
 
@@ -117,7 +115,7 @@ class WhatsAppService {
             const fileBuffer = fs.readFileSync(filePath);
             const base64File = fileBuffer.toString("base64");
 
-            const response = await this.apiClient.post(
+            const response = await this.mediaApiClient.post(
                 `/sendFileByUpload/${this.apiToken}`,
                 {
                     chatId: formattedRecipient,
@@ -130,7 +128,13 @@ class WhatsAppService {
             logger.info(`WhatsApp Service: File sent successfully to ${recipient}: ${filename}`);
             return response.data;
         } catch (error) {
-            logger.error(`WhatsApp Service: Failed to send file ${filename} to ${recipient}.`, { message: error.message });
+            const errorContext = {
+                message: error.message,
+                fileName: filename,
+                recipient: recipient,
+                response: error.response ? { status: error.response.status, data: error.response.data } : 'No response',
+            };
+            logger.error(`WhatsApp Service: Failed to send file.`, errorContext);
             throw error;
         }
     }
@@ -150,7 +154,7 @@ class WhatsAppService {
             const imageBuffer = fs.readFileSync(imagePath);
             const base64Image = imageBuffer.toString("base64");
 
-            const response = await this.apiClient.post(
+            const response = await this.mediaApiClient.post(
                 `/sendFileByUpload/${this.apiToken}`,
                 {
                     chatId: formattedRecipient,
@@ -163,7 +167,12 @@ class WhatsAppService {
             logger.info(`WhatsApp Service: Image sent successfully to ${recipient}.`);
             return response.data;
         } catch (error) {
-            logger.error(`WhatsApp Service: Failed to send image to ${recipient}.`, { message: error.message });
+            const errorContext = {
+                message: error.message,
+                recipient: recipient,
+                response: error.response ? { status: error.response.status, data: error.response.data } : 'No response',
+            };
+            logger.error(`WhatsApp Service: Failed to send image.`, errorContext);
             throw error;
         }
     }
@@ -232,7 +241,12 @@ class WhatsAppService {
 
                         await delay(2000);
                     } catch (error) {
-                        logger.error(`Failed to send attachment ${attachment.filename}:`, error);
+                        const errorContext = {
+                            message: error.message,
+                            fileName: attachment.filename,
+                            response: error.response ? { status: error.response.status, data: error.response.data } : 'No response',
+                        };
+                        logger.error(`WhatsApp Service: Failed to send attachment.`, errorContext);
                         const errorMessage = `❌ Failed to send attachment: ${attachment.filename}`;
                         await this.sendTextMessage(config.whatsapp.targetNumber, errorMessage);
                     }
