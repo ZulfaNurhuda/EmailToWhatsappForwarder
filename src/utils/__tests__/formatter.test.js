@@ -44,7 +44,7 @@ describe('formatter utilities', () => {
 
         test('should handle complex html', () => {
             const html = '<div><h1>Title</h1><p>This is a paragraph with <a href="#">a link</a>.</p></div>';
-            expect(stripHtml(html)).toBe('Title This is a paragraph with a link.');
+            expect(stripHtml(html)).toBe('Title\nThis is a paragraph with a link.');
         });
 
         test('should condense whitespace', () => {

@@ -16,7 +16,7 @@ const FormData = require("form-data");
 const fs = require("fs");
 const { config } = require("../utils/config");
 const logger = require("../utils/logger");
-const { stripHtml, formatFileSize } = require("../utils/formatter");
+const { formatEmailBody, formatFileSize } = require("../utils/formatter");
 const { delay } = require("../utils/helpers");
 
 /**
@@ -177,7 +177,7 @@ class WhatsAppService {
             const date = `*Date:* ${new Date(emailData.date).toLocaleString()}`;
             const contentHeader = `*📝 - EMAIL CONTENT*`;
             const subject = `*Subject:* ${emailData.subject}`;
-            const body = emailData.text || stripHtml(emailData.html);
+            const body = emailData.text || formatEmailBody(emailData.html);
 
             // --- Attachment Information ---
             const totalAttachments = (emailData.attachments?.length || 0) + (emailData.skippedAttachments?.length || 0);
