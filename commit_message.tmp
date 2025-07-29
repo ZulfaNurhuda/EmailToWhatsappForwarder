@@ -1,7 +1,0 @@
-feat: Add comprehensive JSDoc and inline comments
-
-- Added detailed JSDoc comments to all classes, methods, and modules to improve code understanding and maintainability.
-- Added inline comments to clarify complex logic and improve readability.
-- Updated the README.md with a more user-friendly tone and detailed setup instructions.
-- Created a CONTRIBUTING.md file to provide guidelines for future contributors.
-- Standardized the LICENSE file.
