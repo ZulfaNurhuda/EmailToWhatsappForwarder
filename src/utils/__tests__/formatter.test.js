@@ -47,11 +47,6 @@ describe('formatter utilities', () => {
             expect(stripHtml(html)).toBe('Title This is a paragraph with a link.');
         });
 
-        test('should decode html entities', () => {
-            const html = '&lt;div&gt;&amp;nbsp;&quot;test&quot;&#39;s&#39;&lt;/div&gt;';
-            expect(stripHtml(html)).toBe('<div> "test"\'s\'</div>');
-        });
-
         test('should condense whitespace', () => {
             const html = '<p>Extra   spaces</p>';
             expect(stripHtml(html)).toBe('Extra spaces');

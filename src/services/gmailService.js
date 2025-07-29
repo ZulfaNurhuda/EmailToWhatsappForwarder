@@ -29,9 +29,9 @@ class GmailService {
     async initialize() {
         try {
             await fs.mkdir(this.attachmentsDir, { recursive: true });
-            logger.info("Gmail service initialized");
+            logger.info("Gmail Service: Attachments directory created successfully.");
         } catch (error) {
-            logger.error("Failed to initialize Gmail service:", error);
+            logger.error("Gmail Service: Failed to create attachments directory.", error);
             throw error;
         }
     }
@@ -53,19 +53,19 @@ class GmailService {
 
             this.imap.once("ready", () => {
                 this.isConnected = true;
-                logger.info("Connected to Gmail IMAP server");
+                logger.info("Gmail Service: Successfully connected to IMAP server.");
                 resolve();
             });
 
             this.imap.once("error", (err) => {
-                logger.error("IMAP connection error:", err);
+                logger.error("Gmail Service: IMAP connection error.", err);
                 this.isConnected = false;
                 reject(err);
             });
 
             this.imap.once("end", () => {
                 this.isConnected = false;
-                logger.info("IMAP connection ended");
+                logger.info("Gmail Service: IMAP connection ended.");
             });
 
             this.imap.connect();
@@ -80,9 +80,10 @@ class GmailService {
         return new Promise((resolve, reject) => {
             this.imap.openBox("INBOX", false, (err, box) => {
                 if (err) {
-                    logger.error("Failed to open inbox:", err);
+                    logger.error("Gmail Service: Failed to open INBOX.", err);
                     reject(err);
                 } else {
+                    logger.info("Gmail Service: INBOX opened successfully.");
                     resolve(box);
                 }
             });
@@ -115,11 +116,11 @@ class GmailService {
 
             this.imap.search(searchCriteria, (err, results) => {
                 if (err) {
-                    logger.error("Search failed:", err);
+                    logger.error("Gmail Service: Email search failed.", err);
                     reject(err);
                 } else {
                     logger.info(
-                        `Found ${results.length} unread emails from configured senders.`,
+                        `Gmail Service: Found ${results.length} new email(s) from [${senders.join(", ")}].`,
                     );
                     resolve(results);
                 }
@@ -218,10 +219,10 @@ class GmailService {
                         size: attachment.size,
                     });
 
-                    logger.info(`Saved attachment: ${filename}`);
+                    logger.info(`Gmail Service: Attachment saved successfully: ${filename}`);
                 } catch (error) {
                     logger.error(
-                        `Failed to save attachment ${attachment.filename}:`,
+                        `Gmail Service: Failed to save attachment ${attachment.filename}.`,
                         error,
                     );
                 }
@@ -271,15 +272,15 @@ class GmailService {
                     const processedEmail = await this.processEmail(email);
                     processedEmails.push(processedEmail);
 
-                    logger.info(`Processed email: ${processedEmail.subject}`);
+                    logger.info(`Gmail Service: Successfully processed email with UID ${uid} and subject "${processedEmail.subject}".`);
                 } catch (error) {
-                    logger.error(`Failed to process email UID ${uid}:`, error);
+                    logger.error(`Gmail Service: Failed to process email with UID ${uid}.`, error);
                 }
             }
 
             return processedEmails;
         } catch (error) {
-            logger.error("Email check failed:", error);
+            logger.error("Gmail Service: A critical error occurred while checking emails.", error);
             throw error;
         }
     }
@@ -291,7 +292,7 @@ class GmailService {
         if (this.imap && this.isConnected) {
             this.imap.end();
             this.isConnected = false;
-            logger.info("Disconnected from Gmail IMAP server");
+            logger.info("Gmail Service: Disconnected from IMAP server.");
         }
     }
 
@@ -311,11 +312,11 @@ class GmailService {
 
                 if (now - stats.mtimeMs > cutoffTime) {
                     await fs.unlink(filepath);
-                    logger.info(`Deleted old attachment: ${file}`);
+                    logger.info(`Gmail Service: Deleted old attachment: ${file}`);
                 }
             }
         } catch (error) {
-            logger.error("Failed to cleanup attachments:", error);
+            logger.error("Gmail Service: Failed to cleanup old attachments.", error);
         }
     }
 }

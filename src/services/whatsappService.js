@@ -67,10 +67,10 @@ class WhatsAppService {
             const response = await this.apiClient.get(
                 `/getStateInstance/${this.apiToken}`,
             );
-            logger.info("WhatsApp instance status:", response.data);
+            logger.info("WhatsApp Service: Instance status checked successfully.", { status: response.data });
             return response.data;
         } catch (error) {
-            logger.error("Failed to check WhatsApp status:", error.message);
+            logger.error("WhatsApp Service: Failed to check instance status.", { message: error.message });
             throw error;
         }
     }
@@ -93,10 +93,10 @@ class WhatsAppService {
                 },
             );
 
-            logger.info(`Text message sent to ${recipient}`);
+            logger.info(`WhatsApp Service: Text message sent successfully to ${recipient}.`);
             return response.data;
         } catch (error) {
-            logger.error("Failed to send text message:", error.message);
+            logger.error(`WhatsApp Service: Failed to send text message to ${recipient}.`, { message: error.message });
             throw error;
         }
     }
@@ -127,10 +127,10 @@ class WhatsAppService {
                 },
             );
 
-            logger.info(`File ${filename} sent to ${recipient}`);
+            logger.info(`WhatsApp Service: File sent successfully to ${recipient}: ${filename}`);
             return response.data;
         } catch (error) {
-            logger.error(`Failed to send file ${filename}:`, error.message);
+            logger.error(`WhatsApp Service: Failed to send file ${filename} to ${recipient}.`, { message: error.message });
             throw error;
         }
     }
@@ -160,10 +160,10 @@ class WhatsAppService {
                 },
             );
 
-            logger.info(`Image sent to ${recipient}`);
+            logger.info(`WhatsApp Service: Image sent successfully to ${recipient}.`);
             return response.data;
         } catch (error) {
-            logger.error("Failed to send image:", error.message);
+            logger.error(`WhatsApp Service: Failed to send image to ${recipient}.`, { message: error.message });
             throw error;
         }
     }
@@ -246,9 +246,9 @@ class WhatsAppService {
                 }
             }
 
-            logger.info(`Email forwarded successfully: ${emailData.subject}`);
+            logger.info(`WhatsApp Service: Email with subject "${emailData.subject}" was forwarded successfully.`);
         } catch (error) {
-            logger.error("Failed to forward email:", error);
+            logger.error(`WhatsApp Service: Failed to forward email with subject "${emailData.subject}".`, error);
             throw error;
         }
     }
@@ -271,16 +271,17 @@ class WhatsAppService {
         try {
             const status = await this.checkStatus();
             if (status.stateInstance === "authorized") {
+                logger.info("WhatsApp Service: Connection test successful. Instance is authorized.");
                 await this.sendNotification(
                     "✅ Email to WhatsApp Forwarder is connected and running!",
                 );
                 return true;
             } else {
-                logger.error("WhatsApp instance is not authorized");
+                logger.error("WhatsApp Service: Connection test failed. Instance is not authorized.", { status: status.stateInstance });
                 return false;
             }
         } catch (error) {
-            logger.error("WhatsApp connection test failed:", error);
+            logger.error("WhatsApp Service: Connection test failed with an error.", error);
             return false;
         }
     }

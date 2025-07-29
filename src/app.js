@@ -27,11 +27,11 @@ class EmailToWhatsAppForwarder {
      */
     async initialize() {
         try {
-            logger.info("Initializing Email to WhatsApp Forwarder...");
+            logger.info("App: Initializing Email to WhatsApp Forwarder...");
 
             // Validate configuration
             validateConfig();
-            logger.info("Configuration validated successfully");
+            logger.info("App: Configuration validated successfully.");
 
             // Initialize services
             await this.gmailService.initialize();
@@ -41,13 +41,13 @@ class EmailToWhatsAppForwarder {
                 .testConnection();
             if (!isWhatsAppConnected) {
                 throw new Error(
-                    "WhatsApp connection failed. Please check your Green API credentials.",
+                    "App: WhatsApp connection failed. Please check your Green API credentials.",
                 );
             }
 
-            logger.info("All services initialized successfully");
+            logger.info("App: All services initialized successfully.");
         } catch (error) {
-            logger.error("Initialization failed:", error);
+            logger.error("App: Initialization failed.", error);
             throw error;
         }
     }
@@ -57,16 +57,16 @@ class EmailToWhatsAppForwarder {
      */
     async processEmails() {
         try {
-            logger.info("Checking for new emails...");
+            logger.info("App: Starting email processing cycle.");
 
             const emails = await this.gmailService.checkEmails();
 
             if (emails.length === 0) {
-                logger.info("No new emails found");
+                logger.info("App: No new emails to process in this cycle.");
                 return;
             }
 
-            logger.info(`Found ${emails.length} new email(s) to forward`);
+            logger.info(`App: Found ${emails.length} new email(s) to forward.`);
 
             for (const email of emails) {
                 try {
@@ -78,18 +78,18 @@ class EmailToWhatsAppForwarder {
                             const fs = require("fs").promises;
                             await fs.unlink(attachment.filepath);
                             logger.debug(
-                                `Deleted attachment: ${attachment.filepath}`,
+                                `App: Successfully deleted temporary attachment: ${attachment.filepath}`,
                             );
                         } catch (error) {
                             logger.warn(
-                                `Failed to delete attachment: ${attachment.filepath}`,
+                                `App: Could not delete temporary attachment: ${attachment.filepath}`,
                                 error,
                             );
                         }
                     }
                 } catch (error) {
                     logger.error(
-                        `Failed to forward email "${email.subject}":`,
+                        `App: Failed to forward email with subject "${email.subject}".`,
                         error,
                     );
 
@@ -102,28 +102,28 @@ class EmailToWhatsAppForwarder {
                         );
                     } catch (notifyError) {
                         logger.error(
-                            "Failed to send error notification:",
+                            "App: Failed to send a WhatsApp notification about the forwarding failure.",
                             notifyError,
                         );
                     }
                 }
             }
         } catch (error) {
-            logger.error("Email processing failed:", error);
+            logger.error("App: A critical error occurred during the email processing cycle.", error);
 
             // Reconnect Gmail if needed
             if (
                 error.message.includes("IMAP") ||
                 error.message.includes("connection")
             ) {
-                logger.info("Attempting to reconnect to Gmail...");
+                logger.info("App: Attempting to reconnect to Gmail due to a connection error...");
                 try {
                     this.gmailService.disconnect();
                     await this.gmailService.connect();
-                    logger.info("Reconnected to Gmail successfully");
+                    logger.info("App: Reconnected to Gmail successfully.");
                 } catch (reconnectError) {
                     logger.error(
-                        "Failed to reconnect to Gmail:",
+                        "App: Failed to reconnect to Gmail after a connection error.",
                         reconnectError,
                     );
                 }
@@ -140,7 +140,7 @@ class EmailToWhatsAppForwarder {
 
             this.isRunning = true;
             logger.info(
-                `Starting email forwarder with ${config.app.checkIntervalSeconds}s interval`,
+                `App: Starting email forwarder. New emails will be checked every ${config.app.checkIntervalSeconds} seconds.`,
             );
 
             // Process emails immediately on start
@@ -155,13 +155,13 @@ class EmailToWhatsAppForwarder {
 
             // Set up periodic cleanup (once per day)
             setInterval(async () => {
-                logger.info("Running attachment cleanup...");
+                logger.info("App: Starting daily attachment cleanup task.");
                 await this.gmailService.cleanupAttachments(7);
             }, 24 * 60 * 60 * 1000);
 
-            logger.info("Email to WhatsApp forwarder is running");
+            logger.info("App: Email to WhatsApp forwarder is now running.");
         } catch (error) {
-            logger.error("Failed to start forwarder:", error);
+            logger.error("App: A fatal error occurred during startup.", error);
             this.stop();
             process.exit(1);
         }
@@ -171,18 +171,19 @@ class EmailToWhatsAppForwarder {
      * Stops the forwarder
      */
     stop() {
-        logger.info("Stopping email forwarder...");
+        logger.info("App: Stopping the email forwarder...");
 
         this.isRunning = false;
 
         if (this.checkInterval) {
             clearInterval(this.checkInterval);
             this.checkInterval = null;
+            logger.info("App: Email checking interval has been cleared.");
         }
 
         this.gmailService.disconnect();
 
-        logger.info("Email forwarder stopped");
+        logger.info("App: The email forwarder has been stopped.");
     }
 
     /**
@@ -190,15 +191,15 @@ class EmailToWhatsAppForwarder {
      */
     setupGracefulShutdown() {
         const shutdown = async (signal) => {
-            logger.info(`Received ${signal}, shutting down gracefully...`);
+            logger.info(`App: Received ${signal}. Initiating graceful shutdown...`);
 
             try {
                 // Send shutdown notification
                 await this.whatsappService.sendNotification(
-                    "🛑 Email to WhatsApp Forwarder is shutting down...",
+                    "🛑 The Email to WhatsApp Forwarder is shutting down.",
                 );
             } catch (error) {
-                logger.error("Failed to send shutdown notification:", error);
+                logger.error("App: Failed to send the shutdown notification to WhatsApp.", error);
             }
 
             this.stop();

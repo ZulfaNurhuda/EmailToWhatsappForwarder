@@ -11,14 +11,17 @@
 function stripHtml(html) {
     if (!html) return "";
 
-    // A more robust regex-based approach
-    // First, replace block-level elements with a space
+    // Remove script and style elements
+    html = html.replace(/<script[^>]*>([\S\s]*?)<\/script>/gmi, '');
+    html = html.replace(/<style[^>]*>([\S\s]*?)<\/style>/gmi, '');
+
+    // Replace block-level tags with a space
     html = html.replace(/<(h[1-6]|p|div|li|blockquote|pre|br)[\s/]*>/gi, ' ');
 
-    // Then, remove all remaining tags
+    // Remove remaining tags
     html = html.replace(/<[^>]+>/g, '');
 
-    // Finally, decode entities and clean up whitespace
+    // Decode entities and clean up whitespace
     return html
         .replace(/&nbsp;/g, " ")
         .replace(/&amp;/g, "&")
