@@ -173,7 +173,6 @@ class WhatsAppService {
             const header = `⌬  >>  𝗘𝗠𝗔𝗜𝗟 𝗙𝗢𝗥𝗪𝗔𝗥𝗗𝗘𝗥`;
             const infoHeader = `*ℹ️ - EMAIL INFORMATION*`;
             const from = `*From:* ${emailData.from}`;
-            const to = `*To:* ${emailData.to}`;
             const date = `*Date:* ${new Date(emailData.date).toLocaleString()}`;
             const contentHeader = `*📝 - EMAIL CONTENT*`;
             const subject = `*Subject:* ${emailData.subject}`;
@@ -195,7 +194,7 @@ class WhatsAppService {
             }
 
             // --- Construct the final message ---
-            let message = `${header}\n\n${separator}\n\n${infoHeader}\n\n${from}\n${to}\n${date}\n\n${separator}\n\n${contentHeader}\n\n${subject}\n\n${body}`;
+            let message = `${header}\n\n${separator}\n\n${infoHeader}\n\n${from}\n${date}\n\n${separator}\n\n${contentHeader}\n\n${subject}\n\n${body}`;
             if (attachmentText) {
                 message += `\n${separator}\n\n${attachmentText}`;
             }
